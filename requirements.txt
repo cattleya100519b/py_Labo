@@ -7,3 +7,4 @@ torch
 pillow
 plotly
 matplotlib
+scipy
