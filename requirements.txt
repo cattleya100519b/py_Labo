@@ -1,0 +1,9 @@
+numpy
+sympy
+ipython
+jupyter
+ipykernel
+torch
+pillow
+plotly
+matplotlib
