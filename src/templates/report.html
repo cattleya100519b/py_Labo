@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- カード表示 -->
+<div class="card-container">
+{% for f in files %}
+  <div class="card">
+    <h2>{{ f.name }}</h2>
+    <p>サイズ: {{ f.size }}</p>
+    <p>{{ f.description }}</p>
+    <button class="toggle-btn">詳細表示</button>
+    <div class="details hidden">
+      <pre>{{ f | tojson(indent=2) }}</pre>
+    </div>
+  </div>
+{% endfor %}
+</div>
+
+<!-- テーブル表示 -->
+<table class="sortable">
+  <thead>
+    <tr>
+      <th>ファイル名</th>
+      <th>サイズ</th>
+      <th>説明</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for f in files %}
+    <tr>
+      <td>{{ f.name }}</td>
+      <td>{{ f.size }}</td>
+      <td>{{ f.description }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

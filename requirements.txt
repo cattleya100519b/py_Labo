@@ -9,3 +9,5 @@ plotly
 matplotlib
 scipy
 torchvision
+Jinja2
+flask

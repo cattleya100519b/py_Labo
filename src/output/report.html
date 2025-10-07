@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>CSVレポート</title>
+  <link href="../static/style.css" rel="stylesheet">
+  <script src="../static/main.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>CSVレポート</h1>
+  </header>
+
+  <main>
+    
+
+<!-- カード表示 -->
+<div class="card-container">
+
+  <div class="card">
+    <h2>file1.txt</h2>
+    <p>サイズ: 120</p>
+    <p>テキストファイル1</p>
+    <button class="toggle-btn">詳細表示</button>
+    <div class="details hidden">
+      <pre>{
+  "description": "\u30c6\u30ad\u30b9\u30c8\u30d5\u30a1\u30a4\u30eb1",
+  "name": "file1.txt",
+  "size": 120
+}</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>file2.txt</h2>
+    <p>サイズ: 98</p>
+    <p>テキストファイル2</p>
+    <button class="toggle-btn">詳細表示</button>
+    <div class="details hidden">
+      <pre>{
+  "description": "\u30c6\u30ad\u30b9\u30c8\u30d5\u30a1\u30a4\u30eb2",
+  "name": "file2.txt",
+  "size": 98
+}</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>file3.log</h2>
+    <p>サイズ: 200</p>
+    <p>ログファイル</p>
+    <button class="toggle-btn">詳細表示</button>
+    <div class="details hidden">
+      <pre>{
+  "description": "\u30ed\u30b0\u30d5\u30a1\u30a4\u30eb",
+  "name": "file3.log",
+  "size": 200
+}</pre>
+    </div>
+  </div>
+
+</div>
+
+<!-- テーブル表示 -->
+<table class="sortable">
+  <thead>
+    <tr>
+      <th>ファイル名</th>
+      <th>サイズ</th>
+      <th>説明</th>
+    </tr>
+  </thead>
+  <tbody>
+  
+    <tr>
+      <td>file1.txt</td>
+      <td>120</td>
+      <td>テキストファイル1</td>
+    </tr>
+  
+    <tr>
+      <td>file2.txt</td>
+      <td>98</td>
+      <td>テキストファイル2</td>
+    </tr>
+  
+    <tr>
+      <td>file3.log</td>
+      <td>200</td>
+      <td>ログファイル</td>
+    </tr>
+  
+  </tbody>
+</table>
+
+
+  </main>
+</body>
+</html>
