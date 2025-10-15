@@ -5,7 +5,7 @@ import numpy as np
 
 def disp_mat(name_mat: str, mat: any, **kwargs) -> None:
     """jupyter notebook 内で行列を LaTeX 表示で出力する関数
-    
+
     Args:
         name_mat (str): LaTeX 文字列
         mat: 数値配列 (numpy.ndarray, list, etc.)
@@ -21,5 +21,5 @@ def disp_mat(name_mat: str, mat: any, **kwargs) -> None:
     if n is None:
         display(Math(f'{name_mat}={latex(Matrix(mat))}'))
     else:
-        display(Math(f'{name_mat}={latex(Matrix(mat).applyfunc(lambda x: round(x, n)))}'))
-        
+        display(
+            Math(f'{name_mat}={latex(Matrix(mat).applyfunc(lambda x: round(x, n)))}'))
