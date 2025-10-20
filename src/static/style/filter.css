@@ -1,0 +1,8 @@
+thead tr:nth-child(2) th {
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+.filter-input {
+    width: 60px;
+    margin: 2px;
+}

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Sort & Filter</title>
+  <!-- 共通CSS -->
+  <link href="../static/style/filter.css" rel="stylesheet">
+  <link href="../static/style/sort.css" rel="stylesheet">
+  <link href="../static/style/table.css" rel="stylesheet">
+  <!-- 共通JS -->
+  <script src="../static/js/table.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Sort & Filter</h1>
+  </header>
+  <main>
+    
+
+<table id="data-table">
+  <thead>
+    <!-- ヘッダー行: 列名＋ソートボタン -->
+    <tr>
+      
+      <th data-key="name">
+        名前
+        <button class="sort-btn" data-key="name">△▽</button>
+      </th>
+      
+      <th data-key="age">
+        年齢
+        <button class="sort-btn" data-key="age">△▽</button>
+      </th>
+      
+      <th data-key="city">
+        都市
+        <button class="sort-btn" data-key="city">△▽</button>
+      </th>
+      
+    </tr>
+
+    <!-- フィルター行 -->
+    <tr>
+      
+      <th>
+        
+        <select class="filter-input" data-key="name">
+          <option value="">すべて</option>
+          
+          <option value="Alice">Alice</option>
+          
+          <option value="Bob">Bob</option>
+          
+          <option value="Charlie">Charlie</option>
+          
+          <option value="David">David</option>
+          
+        </select>
+        
+      </th>
+      
+      <th>
+        
+        <input type="number" class="filter-input" placeholder="min" data-key="age" data-type="min">
+        <input type="number" class="filter-input" placeholder="max" data-key="age" data-type="max">
+        
+      </th>
+      
+      <th>
+        
+        <select class="filter-input" data-key="city">
+          <option value="">すべて</option>
+          
+          <option value="Nagoya">Nagoya</option>
+          
+          <option value="Osaka">Osaka</option>
+          
+          <option value="Tokyo">Tokyo</option>
+          
+        </select>
+        
+      </th>
+      
+    </tr>
+  </thead>
+
+  <tbody>
+    
+    <tr data-original-index="0">
+      
+      <td>Alice</td>
+      
+      <td>25</td>
+      
+      <td>Tokyo</td>
+      
+    </tr>
+    
+    <tr data-original-index="1">
+      
+      <td>Bob</td>
+      
+      <td>30</td>
+      
+      <td>Osaka</td>
+      
+    </tr>
+    
+    <tr data-original-index="2">
+      
+      <td>Charlie</td>
+      
+      <td>22</td>
+      
+      <td>Nagoya</td>
+      
+    </tr>
+    
+    <tr data-original-index="3">
+      
+      <td>David</td>
+      
+      <td>28</td>
+      
+      <td>Tokyo</td>
+      
+    </tr>
+    
+  </tbody>
+</table>
+
+
+  </main>
+</body>
+</html>

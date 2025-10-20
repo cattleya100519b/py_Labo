@@ -1,0 +1,47 @@
+{% extends "base_251020.html" %}
+{% block content %}
+
+<table id="data-table">
+  <thead>
+    <!-- ヘッダー行: 列名＋ソートボタン -->
+    <tr>
+      {% for col in columns %}
+      <th data-key="{{ col.key }}">
+        {{ col.label }}
+        <button class="sort-btn" data-key="{{ col.key }}">△▽</button>
+      </th>
+      {% endfor %}
+    </tr>
+
+    <!-- フィルター行 -->
+    <tr>
+      {% for col in columns %}
+      <th>
+        {% if col.filter == "select" %}
+        <select class="filter-input" data-key="{{ col.key }}">
+          <option value="">すべて</option>
+          {% for opt in col.options %}
+          <option value="{{ opt }}">{{ opt }}</option>
+          {% endfor %}
+        </select>
+        {% elif col.filter == "range" %}
+        <input type="number" class="filter-input" placeholder="min" data-key="{{ col.key }}" data-type="min">
+        <input type="number" class="filter-input" placeholder="max" data-key="{{ col.key }}" data-type="max">
+        {% endif %}
+      </th>
+      {% endfor %}
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for row in data %}
+    <tr data-original-index="{{ loop.index0 }}">
+      {% for col in columns %}
+      <td>{{ row[col.key] }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

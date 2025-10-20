@@ -1,0 +1,11 @@
+.sort-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.8em;
+    margin-left: 5px;
+    padding: 0;
+}
+th {
+    vertical-align: bottom;
+}

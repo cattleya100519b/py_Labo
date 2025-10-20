@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }}</title>
+  <!-- 共通CSS -->
+  <link href="../static/style/filter.css" rel="stylesheet">
+  <link href="../static/style/sort.css" rel="stylesheet">
+  <link href="../static/style/table.css" rel="stylesheet">
+  <!-- 共通JS -->
+  <script src="../static/js/table.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>{{ title }}</h1>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
