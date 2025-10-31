@@ -1,310 +1,244 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>ユーザ一覧</title>
-
-  <style>
-    
-/* === filter.css === */
-thead tr:nth-child(2) th {
-    padding-top: 2px;
-    padding-bottom: 2px;
-}
-.filter-input {
-    width: 60px;
-    margin: 2px;
-}
-
-/* === sort.css === */
-.sort-btn {
-    border: none;
-    background: none;
-    cursor: pointer;
-    font-size: 0.8em;
-    margin-left: 5px;
-    padding: 0;
-}
-th {
-    vertical-align: bottom;
-}
-/* === table.css === */
-table {
-    border-collapse: collapse;
-    width: 100%;
-}
-th, td {
-    border: 1px solid #ccc;
-    padding: 4px 8px;
-    text-align: left;
-}
-
-  </style>
-
-  <script>
-    
-// === table.js ===
-document.addEventListener("DOMContentLoaded", () => {
-  const table = document.getElementById("data-table");
-  const tbody = table.querySelector("tbody");
-
-  // --- 元データを配列に保持 ---
-  const originalRows = Array.from(tbody.querySelectorAll("tr")).map(tr => ({
-    element: tr,
-    // 各行のセル値を配列で保持
-    cells: Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim()),
-    index: Number(tr.dataset.originalIndex) // 元の並び順を記録
-  }));
-
-  // --- 列名 → インデックスのマッピング（最初のヘッダー行のみ） ---
-  const firstHeaderRow = table.querySelector("thead tr:first-child");
-  const colMap = {};
-  Array.from(firstHeaderRow.querySelectorAll("th")).forEach((th, i) => {
-    const key = th.dataset.key;
-    if (key) colMap[key] = i;
-  });
-
-  // --- ソート状態の管理 ---
-  const sortStates = {};
-  table.querySelectorAll(".sort-btn").forEach(btn => {
-    const key = btn.dataset.key;
-    sortStates[key] = "none"; // 初期はソート無し
-
-    btn.addEventListener("click", () => {
-      // ソート状態を循環: none → asc → desc → none
-      sortStates[key] =
-        sortStates[key] === "none" ? "asc" :
-        sortStates[key] === "asc" ? "desc" : "none";
-
-      // 他の列のソート状態はリセット
-      Object.keys(sortStates).forEach(k => {
-        if (k !== key) sortStates[k] = "none";
-      });
-
-      // ボタン表示を更新
-      table.querySelectorAll(".sort-btn").forEach(b => {
-        const k = b.dataset.key;
-        b.textContent =
-          sortStates[k] === "none" ? "△▽" :
-          sortStates[k] === "asc" ? "▲▽" : "△▼";
-      });
-
-      render();
-    });
-  });
-
-  // --- フィルター状態の管理 ---
-  const filters = {};
-  Array.from(table.querySelectorAll(".filter-input")).forEach(input => {
-    const key = input.dataset.key;
-    if (!filters[key]) filters[key] = { min: null, max: null, select: null };
-
-    // 入力・変更イベントで更新
-    input.addEventListener("input", updateFilters);
-    input.addEventListener("change", updateFilters);
-  });
-
-  // --- フィルター更新関数 ---
-  function updateFilters() {
-    Array.from(table.querySelectorAll(".filter-input")).forEach(input => {
-      const key = input.dataset.key;
-      const type = input.dataset.type || "select";
-      filters[key][type] = input.value.trim() || null;
-    });
-    render();
+<meta charset="UTF-8">
+<title>Virtual Scroll Table</title>
+<style>
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+  th button { border: none; background: none; cursor: pointer; }
+  tr.selected { background: #cde5ff; }
+  .table-container {
+    height: 300px; /* 可視範囲 */
+    overflow-y: auto;
+    position: relative;
+    border: 1px solid #999;
+    margin-top: 8px;
   }
-
-  // --- 行がフィルターを通るか判定 ---
-  const passesFilter = row => Object.keys(filters).every(colKey => {
-    const i = colMap[colKey];
-    const val = row.cells[i];
-    const f = filters[colKey];
-    return (
-      (!f.select || val === f.select) &&
-      (!f.min || Number(val) >= Number(f.min)) &&
-      (!f.max || Number(val) <= Number(f.max))
-    );
-  });
-
-  // --- 行比較関数（ソート用） ---
-  function compare(rowA, rowB) {
-    const sortCol = Object.keys(sortStates).find(k => sortStates[k] !== "none");
-    if (!sortCol) return rowA.index - rowB.index; // ソート無しは元の順
-
-    const order = sortStates[sortCol];
-    const i = colMap[sortCol];
-    const a = rowA.cells[i];
-    const b = rowB.cells[i];
-
-    // 数値ソート・文字列ソートを自動判定
-    const na = parseFloat(a);
-    const nb = parseFloat(b);
-    const bothNumeric = !isNaN(na) && !isNaN(nb);
-
-    if (bothNumeric) return order === "asc" ? na - nb : nb - na;
-    return order === "asc" ? a.localeCompare(b) : b.localeCompare(a);
+  tbody { position: relative; }
+  .spacer {
+    height: 0;
   }
-
-  // --- テーブル描画関数 ---
-  function render() {
-    // フィルターを通した後にソート
-    const rows = originalRows
-      .filter(passesFilter)
-      .sort(compare);
-
-    // tbody を再描画
-    tbody.innerHTML = "";
-    rows.forEach(r => tbody.appendChild(r.element));
-  }
-});
-
-  </script>
+</style>
 </head>
 <body>
-  <header>
-    <h1>ユーザ一覧</h1>
-  </header>
 
-  <main>
-    
-
-<table id="data-table">
-  <thead>
-    <!-- ヘッダー行: 列名＋ソートボタン -->
-    <tr>
-      
-      <th data-key="name">
-        名前
-        <button class="sort-btn" data-key="name">△▽</button>
-      </th>
-      
-      <th data-key="age">
-        年齢
-        <button class="sort-btn" data-key="age">△▽</button>
-      </th>
-      
-      <th data-key="city">
-        都市
-        <button class="sort-btn" data-key="city">△▽</button>
-      </th>
-      
-    </tr>
-
-    <!-- フィルター行 -->
-    <tr>
-      
-      <th>
-        
-        <select class="filter-input" data-key="name">
-          <option value="">すべて</option>
-          
-          <option value="satou">satou</option>
-          
-          <option value="suzuki">suzuki</option>
-          
-          <option value="takaashigani">takaashigani</option>
-          
-          <option value="takahashi">takahashi</option>
-          
-          <option value="tanaka">tanaka</option>
-          
-        </select>
-        
-      </th>
-      
-      <th>
-        
-        <input type="number" class="filter-input" placeholder="min" data-key="age" data-type="min">
-        <input type="number" class="filter-input" placeholder="max" data-key="age" data-type="max">
-        
-      </th>
-      
-      <th>
-        
-        <select class="filter-input" data-key="city">
-          <option value="">すべて</option>
-          
-          <option value="nagoya">nagoya</option>
-          
-          <option value="osaka">osaka</option>
-          
-          <option value="suruga">suruga</option>
-          
-          <option value="tokyo">tokyo</option>
-          
-        </select>
-        
-      </th>
-      
-    </tr>
-  </thead>
-
-  <tbody>
-    
-    <tr data-original-index="0">
-      
-      <td>tanaka</td>
-      
-      <td>28</td>
-      
-      <td>tokyo</td>
-      
-    </tr>
-    
-    <tr data-original-index="1">
-      
-      <td>takahashi</td>
-      
-      <td>40</td>
-      
-      <td>osaka</td>
-      
-    </tr>
-    
-    <tr data-original-index="2">
-      
-      <td>satou</td>
-      
-      <td>34</td>
-      
-      <td>osaka</td>
-      
-    </tr>
-    
-    <tr data-original-index="3">
-      
-      <td>suzuki</td>
-      
-      <td>22</td>
-      
-      <td>nagoya</td>
-      
-    </tr>
-    
-    <tr data-original-index="4">
-      
-      <td>takahashi</td>
-      
-      <td>29</td>
-      
-      <td>tokyo</td>
-      
-    </tr>
-    
-    <tr data-original-index="5">
-      
-      <td>takaashigani</td>
-      
-      <td>100</td>
-      
-      <td>suruga</td>
-      
-    </tr>
-    
-  </tbody>
+<table id="dataTable">
+  <thead></thead>
 </table>
+<div class="table-container">
+  <table>
+    <tbody></tbody>
+  </table>
+</div>
 
+<script>
+// --- ダミーデータ生成 ---
+const DATA = Array.from({ length: 2000 }, (_, i) => ({
+  name: `User${i + 1}`,
+  age: 20 + (i % 40),
+  score: Math.floor(Math.random() * 100)
+}));
 
-  </main>
+// --- 列ごとのフィルター属性（外部から指定）---
+const FILTER_TYPES = { name: "select", age: "range", score: "range" };
+
+// --- 名前空間 ---
+var TableFuncs = TableFuncs || {};
+
+// --- 仮想スクロール対応クラス ---
+TableFuncs.Table = class {
+  constructor(tableId, data, filterTypes) {
+    this.data = data;
+    this.filtered = [...data];
+    this.sorted = null;
+    this.table = document.getElementById(tableId);
+    this.thead = this.table.querySelector("thead");
+    this.container = document.querySelector(".table-container");
+    this.tbody = this.container.querySelector("tbody");
+    this.rowHeight = 28;
+    this.buffer = 10;
+    this.columns = Object.keys(data[0]);
+    this.filterValues = {};
+    this.filterTypes = filterTypes;
+    this.selectedRowIndex = 0;
+    this.scrollTop = 0;
+
+    this.renderHeader();
+    this.renderFilterRow();
+    this.applyFilterAndRender();
+    this.setupScroll();
+    this.setupKeyboard();
+  }
+
+  renderHeader() {
+    const tr = document.createElement("tr");
+    this.columns.forEach(col => {
+      const th = document.createElement("th");
+      const btn = document.createElement("button");
+      btn.textContent = col;
+      btn.addEventListener("click", () => this.sortBy(col));
+      th.appendChild(btn);
+      tr.appendChild(th);
+    });
+    this.thead.appendChild(tr);
+  }
+
+  renderFilterRow() {
+    const tr = document.createElement("tr");
+    this.columns.forEach(col => {
+      const th = document.createElement("th");
+      const type = this.filterTypes[col];
+      if (type === "select") {
+        const sel = document.createElement("select");
+        sel.innerHTML = `<option value="">(すべて)</option>`;
+        [...new Set(this.data.map(d => d[col]))].forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener("change", () => {
+          this.filterValues[col] = sel.value;
+          this.applyFilterAndRender();
+        });
+        th.appendChild(sel);
+      } else if (type === "range") {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "min-max";
+        input.addEventListener("change", () => {
+          const [min, max] = input.value.split("-").map(Number);
+          this.filterValues[col] = { min, max };
+          this.applyFilterAndRender();
+        });
+        th.appendChild(input);
+      }
+      tr.appendChild(th);
+    });
+    this.thead.appendChild(tr);
+  }
+
+  sortBy(col) {
+    const dir = (this.sorted?.key === col && this.sorted.dir === "asc") ? "desc" : "asc";
+    this.sorted = { key: col, dir };
+    this.filtered.sort((a, b) => {
+      if (a[col] < b[col]) return dir === "asc" ? -1 : 1;
+      if (a[col] > b[col]) return dir === "asc" ? 1 : -1;
+      return 0;
+    });
+    this.renderVirtual();
+    this.resetSelection();
+    this.updateSortButtonState(col, dir);
+  }
+
+  updateSortButtonState(col, dir) {
+    this.thead.querySelectorAll("button").forEach(btn => {
+      btn.textContent = btn.textContent.replace(/ ↑| ↓/g, "");
+      if (btn.textContent === col) btn.textContent += dir === "asc" ? " ↑" : " ↓";
+    });
+  }
+
+  applyFilterAndRender() {
+    this.filtered = this.data.filter(row => {
+      return this.columns.every(col => {
+        const f = this.filterValues[col];
+        if (!f || f === "") return true;
+        if (typeof f === "object") {
+          const { min, max } = f;
+          if (min && row[col] < min) return false;
+          if (max && row[col] > max) return false;
+          return true;
+        }
+        return row[col] == f;
+      });
+    });
+    this.scrollTop = 0;
+    this.container.scrollTop = 0;
+    this.renderVirtual();
+    this.resetSelection();
+  }
+
+  setupScroll() {
+    this.container.addEventListener("scroll", () => {
+      this.scrollTop = this.container.scrollTop;
+      this.renderVirtual();
+    });
+  }
+
+  renderVirtual() {
+    const total = this.filtered.length;
+    const visibleCount = Math.ceil(this.container.clientHeight / this.rowHeight);
+    const startIndex = Math.floor(this.scrollTop / this.rowHeight);
+    const endIndex = Math.min(total, startIndex + visibleCount + this.buffer);
+    const slice = this.filtered.slice(startIndex, endIndex);
+
+    this.tbody.innerHTML = "";
+
+    const spacerTop = document.createElement("tr");
+    spacerTop.className = "spacer";
+    spacerTop.style.height = `${startIndex * this.rowHeight}px`;
+    this.tbody.appendChild(spacerTop);
+
+    slice.forEach((row, i) => {
+      const tr = document.createElement("tr");
+      this.columns.forEach(c => {
+        const td = document.createElement("td");
+        td.textContent = row[c];
+        tr.appendChild(td);
+      });
+      const actualIndex = startIndex + i;
+      tr.addEventListener("click", () => this.selectRow(actualIndex));
+      if (actualIndex === this.selectedRowIndex) tr.classList.add("selected");
+      this.tbody.appendChild(tr);
+    });
+
+    const spacerBottom = document.createElement("tr");
+    spacerBottom.className = "spacer";
+    spacerBottom.style.height = `${Math.max(0, (total - endIndex) * this.rowHeight)}px`;
+    this.tbody.appendChild(spacerBottom);
+  }
+
+  setupKeyboard() {
+    document.addEventListener("keydown", e => {
+      if (["ArrowUp", "ArrowDown"].includes(e.key)) {
+        e.preventDefault();
+        const dir = e.key === "ArrowUp" ? -1 : 1;
+        this.selectedRowIndex = Math.min(
+          Math.max(0, this.selectedRowIndex + dir),
+          this.filtered.length - 1
+        );
+        this.scrollToSelection();
+        this.renderVirtual();
+      }
+    });
+  }
+
+  selectRow(index) {
+    this.selectedRowIndex = index;
+    this.scrollToSelection();
+    this.renderVirtual();
+  }
+
+  scrollToSelection() {
+    const y = this.selectedRowIndex * this.rowHeight;
+    if (y < this.scrollTop) {
+      this.container.scrollTop = y;
+    } else if (y + this.rowHeight > this.scrollTop + this.container.clientHeight) {
+      this.container.scrollTop = y - this.container.clientHeight + this.rowHeight;
+    }
+  }
+
+  resetSelection() {
+    this.selectedRowIndex = 0;
+    this.renderVirtual();
+  }
+};
+
+// --- 初期化 ---
+document.addEventListener("DOMContentLoaded", () => {
+  new TableFuncs.Table("dataTable", DATA, FILTER_TYPES);
+});
+</script>
 </body>
 </html>
