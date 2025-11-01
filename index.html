@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>TableApp 完全版</title>
+  <title>TableApp（filter=match＋修正版）</title>
   <style>
     .table-container {
       height: 300px;
@@ -17,15 +17,6 @@
       table-layout: fixed;
     }
 
-    thead th {
-      position: sticky;
-      top: 0;
-      background: #fff;
-      z-index: 2;
-      border: 1px solid #ccc;
-      padding: 4px 8px;
-    }
-
     th,
     td {
       border: 1px solid #ccc;
@@ -34,6 +25,23 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    thead th {
+      background: #fff;
+      z-index: 3;
+    }
+
+    thead tr:nth-child(1) th {
+      position: sticky;
+      top: 0;
+    }
+
+    thead tr:nth-child(2) th {
+      position: sticky;
+      top: 30px;
+      background: #f9f9f9;
+      z-index: 2;
     }
 
     .sort-btn {
@@ -47,6 +55,41 @@
 
     .paging-controls {
       margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      position: relative;
+    }
+
+    .filter-btn {
+      font-size: 10px;
+      padding: 2px 5px;
+    }
+
+    .dropdown {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      display: none;
+      max-height: 120px;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .dropdown div {
+      padding: 2px 5px;
+      cursor: pointer;
+    }
+
+    .dropdown div:hover {
+      background: #e6f2ff;
     }
 
     .preview img {
@@ -55,21 +98,17 @@
       border: 1px solid #ccc;
     }
 
-    tbody {
-      display: block;
-      width: 100%;
-    }
-
-    thead,
-    tbody tr {
-      display: table;
-      table-layout: fixed;
-      width: 100%;
+    #reset-filters {
+      margin-bottom: 5px;
+      font-size: 12px;
+      padding: 3px 6px;
     }
   </style>
 </head>
 
 <body>
+
+  <button id="reset-filters">フィルターリセット</button>
 
   <div class="table-container">
     <table id="data-table"></table>
@@ -92,7 +131,6 @@
   </div>
 
   <script>
-    // --- サンプル外部データ ---
     const columns = [
       { key: "id", label: "ID" },
       { key: "name", label: "Name" },
@@ -101,33 +139,22 @@
       { key: "img", label: "Image" }
     ];
 
-    const NUM_ROWS = 5000;
-    const names = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Hannah", "Ivy", "Jack"];
-    const rows = [];
-    for (let i = 1; i <= NUM_ROWS; i++) {
+    const filterTypes = { id: "match", name: "match", age: "range", score: "range", img: "match" };
+
+    const tableData = [];
+    const names = ["Alice", "Bob", "Charlie", "David", "Eve"];
+    for (let i = 1; i <= 50; i++) {
       const name = names[Math.floor(Math.random() * names.length)];
       const age = 18 + Math.floor(Math.random() * 50);
       const score = Math.floor(Math.random() * 100);
-      rows.push({ id: i, name: name, age: age, score: score, img: `img${(i % 10) + 1}.jpg` });
+      tableData.push({ id: i, name, age, score, img: `img${(i % 5) + 1}.jpg` });
     }
-    const tableData = { columns: columns, rows: rows };
 
-    // 列ごとのフィルタータイプ（外部 JS で設定想定）
-    const filterTypes = { id: "select", name: "select", age: "range", score: "range", img: "select" };
-
-    var TableApp = TableApp || {};
-    TableApp.Table = class {
-      /**
-       * @param {HTMLTableElement} table 
-       * @param {Object} tableData - {columns:[{key,label}], rows:[{...}]} 
-       * @param {Object} filterTypes - {key: "select"|"range"}
-       * @param {number} pageSize - 1ページあたり表示行数
-       */
-      constructor(table, tableData, filterTypes = {}, pageSize = 10) {
+    class TableApp {
+      constructor(table, data, columns, filterTypes, pageSize = 10) {
         this.table = table;
-        this.tbody = table.createTBody();
-        this.columns = tableData.columns;
-        this.rowsData = tableData.rows;
+        this.data = data;
+        this.columns = columns;
         this.filterTypes = filterTypes;
         this.pageSize = pageSize;
 
@@ -135,173 +162,284 @@
         this.filters = {};
         this.currentPage = 1;
         this.selectedIndex = 0;
+        this.lastIndex = 0;
         this.imgPreview = document.getElementById("row-preview");
 
-        this.rows = this.rowsData.map((r, i) => ({
-          element: null,
-          data: r,
-          index: i
-        }));
-
-        this.#renderHeader();
-        this.#initSortButtons();
-        this.#initFilters();
-        this.#initPaging();
-        this.#initRowSelection();
+        this.renderHeader();
+        this.initSort();
+        this.initPaging();
+        this.initRowSelect();
+        this.initResetFilters();
         this.render();
       }
 
-      #renderHeader() {
+      renderHeader() {
         const thead = this.table.createTHead();
-        const tr = thead.insertRow();
-        this.columns.forEach(c => {
+
+        const trHead = thead.insertRow();
+        this.columns.forEach(col => {
           const th = document.createElement("th");
-          th.textContent = c.label + " ";
+          th.textContent = col.label;
           const btn = document.createElement("button");
-          btn.className = "sort-btn"; btn.dataset.key = c.key; btn.textContent = "△▽";
+          btn.className = "sort-btn";
+          btn.dataset.key = col.key;
+          btn.textContent = "△▽";
           th.appendChild(btn);
-          tr.appendChild(th);
+          trHead.appendChild(th);
+          this.sortStates[col.key] = "none";
         });
 
-        const filterTr = thead.insertRow();
-        this.columns.forEach(c => {
+        const trFilter = thead.insertRow();
+        this.columns.forEach(col => {
           const th = document.createElement("th");
-          const type = this.filterTypes[c.key] || "select";
+          const type = this.filterTypes[col.key] || "match";
+
           if (type === "range") {
-            const minInput = document.createElement("input");
-            minInput.type = "number"; minInput.dataset.key = c.key; minInput.dataset.type = "min"; minInput.placeholder = "Min"; minInput.style.width = "45%";
-            const maxInput = document.createElement("input");
-            maxInput.type = "number"; maxInput.dataset.key = c.key; maxInput.dataset.type = "max"; maxInput.placeholder = "Max"; maxInput.style.width = "45%";
-            th.appendChild(minInput); th.appendChild(document.createTextNode(" - ")); th.appendChild(maxInput);
+            const min = document.createElement("input");
+            const max = document.createElement("input");
+            min.type = max.type = "number";
+            min.placeholder = "Min";
+            max.placeholder = "Max";
+            min.style.width = max.style.width = "40%";
+            min.oninput = max.oninput = () => {
+              this.filters[col.key] = {
+                ...this.filters[col.key],
+                min: Number(min.value) || null,
+                max: Number(max.value) || null
+              };
+              this.currentPage = 1;
+              this.render();
+            };
+            th.append(min, document.createTextNode(" - "), max);
           } else {
-            const inp = document.createElement("input");
-            inp.type = "text"; inp.dataset.key = c.key; inp.dataset.type = "select"; inp.placeholder = "Filter";
-            th.appendChild(inp);
+            const wrapper = document.createElement("div");
+            wrapper.className = "filter-wrapper";
+            const input = document.createElement("input");
+            input.type = "text";
+            input.placeholder = "Filter";
+            input.oninput = () => {
+              this.filters[col.key] = { text: input.value || null };
+              this.currentPage = 1;
+              this.render();
+            };
+            wrapper.appendChild(input);
+
+            const btn = document.createElement("button");
+            btn.textContent = "▼";
+            btn.className = "filter-btn";
+            wrapper.appendChild(btn);
+
+            const dropdown = document.createElement("div");
+            dropdown.className = "dropdown";
+            document.body.appendChild(dropdown);
+
+            btn.onclick = (e) => {
+              e.stopPropagation();
+              dropdown.innerHTML = "";
+              const rect = btn.getBoundingClientRect();
+              dropdown.style.left = rect.left + "px";
+              dropdown.style.top = rect.bottom + "px";
+              const uniqueValues = [...new Set(this.data.map(d => d[col.key]))];
+              uniqueValues.forEach(v => {
+                const div = document.createElement("div");
+                div.textContent = v;
+                div.onclick = () => {
+                  input.value = v;
+                  this.filters[col.key] = { text: v };
+                  dropdown.style.display = "none";
+                  this.currentPage = 1;
+                  this.render();
+                };
+                dropdown.appendChild(div);
+              });
+              dropdown.style.display = "block";
+            };
+            document.addEventListener("click", () => dropdown.style.display = "none");
+            th.appendChild(wrapper);
           }
-          filterTr.appendChild(th);
+          trFilter.appendChild(th);
         });
       }
 
-      #initSortButtons() {
+      initSort() {
         this.table.querySelectorAll(".sort-btn").forEach(btn => {
-          const key = btn.dataset.key;
-          this.sortStates[key] = "none";
           btn.addEventListener("click", () => {
-            this.sortStates[key] = this.sortStates[key] === "none" ? "asc" : this.sortStates[key] === "asc" ? "desc" : "none";
-            Object.keys(this.sortStates).forEach(k => { if (k !== key) this.sortStates[k] = "none" });
-            this.#updateSortIcons();
-            this.currentPage = 1; this.render();
+            const key = btn.dataset.key;
+            const current = this.sortStates[key];
+            const next = current === "none" ? "asc" : current === "asc" ? "desc" : "none";
+            Object.keys(this.sortStates).forEach(k => this.sortStates[k] = "none");
+            this.sortStates[key] = next;
+            this.updateSortIcons();
+            this.currentPage = 1;
+            this.render();
           });
         });
       }
 
-      #updateSortIcons() {
+      updateSortIcons() {
         this.table.querySelectorAll(".sort-btn").forEach(btn => {
-          const s = this.sortStates[btn.dataset.key];
-          btn.textContent = s === "none" ? "△▽" : s === "asc" ? "▲▽" : "△▼";
+          const state = this.sortStates[btn.dataset.key];
+          btn.textContent = state === "none" ? "△▽" : state === "asc" ? "▲▽" : "△▼";
         });
       }
 
-      #initFilters() {
-        this.table.querySelectorAll("input").forEach(inp => {
-          const key = inp.dataset.key;
-          const type = inp.dataset.type;
-          if (!this.filters[key]) this.filters[key] = { select: null, min: null, max: null };
-          inp.addEventListener("input", () => {
-            this.filters[key][type] = type === "min" || type === "max" ? Number(inp.value) || null : inp.value || null;
-            this.currentPage = 1; this.render();
-          });
-        });
-      }
-
-      #initPaging() {
+      initPaging() {
         const prev = document.getElementById("prev-page");
         const next = document.getElementById("next-page");
         const cur = document.getElementById("current-page");
         const total = document.getElementById("total-pages");
-        const pageSizeSel = document.getElementById("page-size");
+        const size = document.getElementById("page-size");
 
-        prev.addEventListener("click", () => { if (this.currentPage > 1) { this.currentPage--; this.render(); } });
-        next.addEventListener("click", () => { const tp = Math.ceil(this.filteredRows.length / this.pageSize); if (this.currentPage < tp) { this.currentPage++; this.render(); } });
-        cur.addEventListener("change", () => { const tp = Math.ceil(this.filteredRows.length / this.pageSize); this.currentPage = Math.min(Math.max(1, Number(cur.value)), tp); this.render(); });
-        pageSizeSel.addEventListener("change", () => { this.pageSize = Number(pageSizeSel.value); this.currentPage = 1; this.render(); });
-
+        prev.onclick = () => {
+          const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
+          this.currentPage = (this.currentPage - 2 + totalPages) % totalPages + 1;
+          this.render();
+        };
+        next.onclick = () => {
+          const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
+          this.currentPage = this.currentPage % totalPages + 1;
+          this.render();
+        };
+        cur.onchange = () => {
+          const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
+          this.currentPage = Math.min(Math.max(1, +cur.value), totalPages);
+          this.render();
+        };
+        size.onchange = () => {
+          this.pageSize = +size.value;
+          this.currentPage = 1;
+          this.render();
+        };
         this.pageUI = { cur, total };
       }
 
-      #initRowSelection() {
+      initRowSelect() {
         this.table.addEventListener("click", e => {
-          const tr = e.target.closest("tr"); if (!tr) return;
-          const idx = this.filteredRows.findIndex(r => r.element === tr);
-          if (idx !== -1) { this.selectedIndex = idx; this.#updateSelection(); }
+          const tr = e.target.closest("tr");
+          if (!tr) return;
+          const idx = [...this.table.tBodies[0].rows].indexOf(tr);
+          this.selectedIndex = idx;
+          this.updateSelection(0);
         });
+
         document.addEventListener("keydown", e => {
-          if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-            e.preventDefault();
-            this.selectedIndex += e.key === "ArrowDown" ? 1 : -1;
-            this.selectedIndex = Math.max(0, Math.min(this.selectedIndex, this.filteredRows.length - 1));
-            this.#updateSelection(true);
+          if (!this.pageRows?.length) return;
+          const rows = this.table.tBodies[0].rows;
+          if (e.key === "ArrowDown") {
+            const lastIndex = this.selectedIndex;
+            this.selectedIndex = (this.selectedIndex + 1) % this.pageRows.length;
+            this.updateSelection(lastIndex);
+          } else if (e.key === "ArrowUp") {
+            const lastIndex = this.selectedIndex;
+            this.selectedIndex = (this.selectedIndex - 1 + this.pageRows.length) % this.pageRows.length;
+            this.updateSelection(lastIndex);
           }
         });
       }
 
-      #updateSelection(scroll = false) {
-        this.filteredRows.forEach((r, i) => r.element.classList.toggle("selected", i === this.selectedIndex));
-        const sel = this.filteredRows[this.selectedIndex];
-        if (sel && this.imgPreview) { this.imgPreview.src = sel.data.img || ""; }
-        if (scroll && sel) sel.element.scrollIntoView({ block: "nearest" });
+      updateSelection(lastIndex) {
+        const rows = this.table.tBodies[0].rows;
+        [...rows].forEach((r, i) => r.classList.toggle("selected", i === this.selectedIndex));
+        const sel = this.pageRows[this.selectedIndex];
+        if (sel && this.imgPreview) this.imgPreview.src = sel.img || "";
+
+        const container = document.querySelector(".table-container");
+
+        // 固定ヘッダ高さ
+        const thead = this.table.tHead;
+        let headerHeight = 0;
+        if (thead) [...thead.rows].forEach(r => headerHeight += r.offsetHeight);
+
+        // 行末→行頭, 行頭→行末ループ
+        if (this.selectedIndex === 0 && lastIndex === rows.length - 1) {
+          container.scrollTop = 0;
+        } else if (this.selectedIndex === rows.length - 1 && lastIndex === 0) {
+          container.scrollTop = container.scrollHeight;
+        } else {
+          // ページ内スクロール補正
+          const rowTop = rows[this.selectedIndex].offsetTop;
+          const rowBottom = rowTop + rows[this.selectedIndex].offsetHeight;
+          const viewTop = container.scrollTop;
+          const viewBottom = viewTop + container.clientHeight;
+
+          if (rowBottom > viewBottom) {
+            container.scrollTop += rows[this.selectedIndex].offsetHeight;
+          } else if (rowTop < viewTop + headerHeight) {
+            container.scrollTop -= rows[this.selectedIndex].offsetHeight;
+          }
+        }
+
+        this.lastIndex = this.selectedIndex;
       }
 
-      #passesFilter(row) {
-        return Object.keys(this.filters).every(k => {
-          const val = row.data[k], f = this.filters[k];
-          return (!f.select || String(val) === String(f.select)) &&
-            (!f.min || Number(val) >= f.min) &&
-            (!f.max || Number(val) <= f.max);
-        });
-      }
-
-      #compare(a, b) {
-        const sKey = Object.keys(this.sortStates).find(k => this.sortStates[k] !== "none");
-        if (!sKey) return a.index - b.index;
-        const order = this.sortStates[sKey]; const va = a.data[sKey]; const vb = b.data[sKey];
-        const na = parseFloat(va), nb = parseFloat(vb); const numeric = !isNaN(na) && !isNaN(nb);
-        if (numeric) return order === "asc" ? na - nb : nb - na;
-        return order === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+      initResetFilters() {
+        document.getElementById("reset-filters").onclick = () => {
+          this.filters = {};
+          document.querySelectorAll("thead input").forEach(el => el.value = "");
+          this.currentPage = 1;
+          this.render();
+        };
       }
 
       render() {
-        this.filteredRows = this.rows.filter(r => this.#passesFilter(r)).sort((a, b) => this.#compare(a, b));
-        const totalPages = Math.ceil(this.filteredRows.length / this.pageSize) || 1;
-        if (this.currentPage > totalPages) this.currentPage = totalPages;
-        const startIdx = (this.currentPage - 1) * this.pageSize;
-        const endIdx = Math.min(startIdx + this.pageSize, this.filteredRows.length);
-        const pageRows = this.filteredRows.slice(startIdx, endIdx);
+        this.filtered = this.data.filter(d =>
+          this.columns.every(col => {
+            const f = this.filters[col.key];
+            if (!f) return true;
+            const val = d[col.key];
+            if (f.text != null) return String(val).toLowerCase().includes(f.text.toLowerCase());
+            if (f.min != null && val < f.min) return false;
+            if (f.max != null && val > f.max) return false;
+            return true;
+          })
+        );
 
-        this.tbody.innerHTML = "";
-        pageRows.forEach(r => {
+        const sortKey = Object.keys(this.sortStates).find(k => this.sortStates[k] !== "none");
+        if (sortKey) {
+          const order = this.sortStates[sortKey];
+          this.filtered.sort((a, b) => {
+            const va = a[sortKey], vb = b[sortKey];
+            const num = !isNaN(va) && !isNaN(vb);
+            if (num) return order === "asc" ? va - vb : vb - va;
+            return order === "asc"
+              ? String(va).localeCompare(String(vb))
+              : String(vb).localeCompare(String(va));
+          });
+        }
+
+        const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
+        if (this.currentPage > totalPages) this.currentPage = totalPages;
+
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        this.pageRows = this.filtered.slice(start, end);
+
+        if (!this.table.tBodies[0]) this.table.appendChild(document.createElement("tbody"));
+        const tbody = this.table.tBodies[0];
+        tbody.innerHTML = "";
+
+        this.pageRows.forEach(d => {
           const tr = document.createElement("tr");
           this.columns.forEach(c => {
             const td = document.createElement("td");
-            td.textContent = r.data[c.key];
+            td.textContent = d[c.key];
             tr.appendChild(td);
           });
-          r.element = tr;
-          this.tbody.appendChild(tr);
+          tbody.appendChild(tr);
         });
 
         this.selectedIndex = 0;
-        this.#updateSelection();
+        this.lastIndex = 0;
+        this.updateSelection(0);
         this.pageUI.cur.value = this.currentPage;
         this.pageUI.total.textContent = totalPages;
       }
-    };
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
-      new TableApp.Table(document.getElementById("data-table"), tableData, filterTypes, 10);
+      new TableApp(document.getElementById("data-table"), tableData, columns, filterTypes, 10);
     });
   </script>
-
 </body>
 
 </html>
