@@ -1,0 +1,163 @@
+/* テーブル全体をスクロール可能な領域に収めるためのコンテナ */
+.table-container {
+    height: 300px;
+    /* 表の表示高さを固定 */
+    overflow-y: auto;
+    /* 縦方向スクロールを有効化 */
+    border: 1px solid #ccc;
+    /* コンテナの枠線 */
+}
+
+/* テーブルの基本設定 */
+table {
+    border-collapse: collapse;
+    /* 枠線を重ねて1本線にする */
+    width: 100%;
+    /* コンテナ幅に合わせる */
+    table-layout: fixed;
+    /* 列幅を固定し、overflow制御を有効にする */
+}
+
+/* テーブルのセル共通設定 */
+th,
+td {
+    border: 1px solid #ccc;
+    /* 各セルの枠線 */
+    padding: 4px 8px;
+    /* 内側余白 */
+    text-align: left;
+    /* テキストを左寄せ */
+    white-space: nowrap;
+    /* 折り返し防止 */
+    overflow: hidden;
+    /* はみ出しテキストを非表示 */
+    text-overflow: ellipsis;
+    /* はみ出しを省略記号「…」で表示 */
+}
+
+/* テーブルヘッダ共通 */
+thead th {
+    background: #fff;
+    /* 背景を白で固定 */
+    z-index: 3;
+    /* 固定位置の重なり順を上にする */
+}
+
+/* 1行目（項目名ヘッダ）をスクロール固定 */
+thead tr:nth-child(1) th {
+    position: sticky;
+    /* スクロール時に固定 */
+    top: 0;
+    /* 表示領域の最上部に固定 */
+}
+
+/* 2行目（フィルター行）も固定（1行目の下に配置） */
+thead tr:nth-child(2) th {
+    position: sticky;
+    /* 同様に固定 */
+    top: 30px;
+    /* 1行目の高さ分ずらす */
+    background: #f9f9f9;
+    /* 背景を少しグレーにして区別 */
+    z-index: 2;
+    /* 1行目より下の層に */
+}
+
+/* ソートボタンの小型スタイル */
+.sort-btn {
+    margin-left: 5px;
+    /* 見出し文字との間隔 */
+    font-size: 12px;
+    /* 小さめ文字サイズ */
+}
+
+/* 選択中行のハイライト */
+tr.selected {
+    background-color: #d0ebff;
+    /* 淡い水色で選択を強調 */
+}
+
+/* ページング操作ボタン周りの配置 */
+.paging-controls {
+    margin-top: 10px;
+    /* 表との間隔 */
+    display: flex;
+    /* 横並びレイアウト */
+    justify-content: center;
+    /* 中央寄せ */
+    align-items: center;
+    /* 垂直方向中央揃え */
+    gap: 6px;
+    /* 要素間の隙間 */
+}
+
+/* フィルター入力とボタンを横並びに配置 */
+.filter-wrapper {
+    display: flex;
+    align-items: center;
+    /* 縦中央揃え */
+    gap: 2px;
+    /* 入力欄とボタン間の間隔 */
+    position: relative;
+    /* dropdownの基準位置 */
+}
+
+/* フィルターボタンのスタイル */
+.filter-btn {
+    font-size: 10px;
+    /* コンパクトな文字サイズ */
+    padding: 2px 5px;
+    /* 小さめパディング */
+}
+
+/* ドロップダウンメニュー本体 */
+.dropdown {
+    position: absolute;
+    /* 親（filter-wrapper）に対する絶対配置 */
+    background: white;
+    /* 背景は白 */
+    border: 1px solid #ccc;
+    /* 枠線 */
+    display: none;
+    /* 初期状態では非表示 */
+    max-height: 120px;
+    /* 高さ制限（スクロール可能に） */
+    overflow-y: auto;
+    /* メニュー項目が多い場合スクロール */
+    z-index: 10;
+    /* テーブル要素より前面に出す */
+}
+
+/* ドロップダウン内の各項目 */
+.dropdown div {
+    padding: 2px 5px;
+    /* 項目内余白 */
+    cursor: pointer;
+    /* クリック可能カーソル */
+}
+
+/* ドロップダウン項目のホバー時スタイル */
+.dropdown div:hover {
+    background: #e6f2ff;
+    /* 薄い青で強調 */
+}
+
+/* 画像プレビューエリアの画像設定 */
+.preview img {
+    max-width: 200px;
+    /* 最大幅制限 */
+    max-height: 200px;
+    /* 最大高さ制限 */
+    border: 1px solid #ccc;
+    /* 枠線 */
+}
+
+/* フィルターリセットボタンの見た目 */
+#reset-filters {
+    margin-bottom: 5px;
+    /* 表との間隔 */
+    font-size: 12px;
+    /* 小さめフォント */
+    padding: 3px 6px;
+    /* コンパクトな余白 */
+}

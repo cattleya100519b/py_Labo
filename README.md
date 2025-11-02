@@ -1,12 +1,13 @@
 # TableApp 仕様書
 
-## 残タスク
-- [ ] ファイル分割
-- [ ] JSDoc、コメント
-- [ ] CSSコメント
-- [ ] private関数
-- [ ] mermaid diagram
-- [ ] Jinjaテンプレート
+## 責務分解
+| 機能        | 関連メソッド                                             | 責務                    |
+| --------- | -------------------------------------------------- | --------------------- |
+| **ソート**   | `#initSort`, `#updateSortIcons`                    | 列単位の状態管理＋UI反映         |
+| **フィルタ**  | `#renderHeader`, `#initResetFilters`, 一部`render()` | 入力要素とデータフィルタ          |
+| **ページング** | `#initPaging`, 一部`render()`                        | ページ番号・サイズ・ナビゲーション     |
+| **選択・移動** | `#initRowSelect`, `#updateSelection`               | 行選択状態＋スクロール補正＋プレビュー更新 |
+| **描画統合**  | `render`                                           | 全体の再描画制御              |
 
 ## 概要
 - HTMLページ上にデータテーブルを表示し、ページング・ソート・フィルター・行選択・画像プレビューができるWebアプリケーション。
@@ -68,3 +69,73 @@
 3. `data.js` : テーブルデータ配列
 4. `filterTypes.js` : 列ごとのフィルター属性定義
 5. `main.js` : テーブル操作ロジック（描画、ソート、フィルター、ページング、行選択）
+
+---
+
+## class diagram
+```mermaid
+classDiagram
+class TableApp {
+  - HTMLTableElement table
+  - Object[] data
+  - Object[] columns
+  - Object filterTypes
+  - number pageSize
+  - Object sortStates
+  - Object filters
+  - number currentPage
+  - number selectedIndex
+  - number lastIndex
+  - HTMLElement imgPreview
+  - Object pageUI
+  + constructor(table, data, columns, filterTypes, pageSize)
+  + render()
+  - #renderHeader()
+  - #initSort()
+  - #updateSortIcons()
+  - #initPaging()
+  - #initRowSelect()
+  - #updateSelection(lastIndex)
+  - #initResetFilters()
+}
+TableApp : ソート
+TableApp : フィルタ
+TableApp : ページング
+TableApp : 行選択
+TableApp : プレビュー更新
+```
+
+---
+
+## flowchart td
+```mermaid
+flowchart TD
+  A[constructor] --> B[#renderHeader]
+  A --> C[#initSort]
+  A --> D[#initPaging]
+  A --> E[#initRowSelect]
+  A --> F[#initResetFilters]
+  A --> G[render]
+
+  C --> H[#updateSortIcons]
+  E --> I[#updateSelection]
+  G --> I
+```
+
+---
+
+## sequence diagram
+```mermaid
+sequenceDiagram
+  participant User
+  participant SortButton
+  participant TableApp
+  participant DOM
+
+  User->>SortButton: click
+  SortButton->>TableApp: #initSort handler
+  TableApp->>TableApp: update sortStates
+  TableApp->>TableApp: #updateSortIcons()
+  TableApp->>TableApp: render()
+  TableApp->>DOM: 更新された行を描画
+```
