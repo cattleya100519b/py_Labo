@@ -4,25 +4,118 @@
  */
 class TableApp {
     /**
+     * @private
+     * @type {HTMLTableElement}
+     * 操作対象のテーブル要素。renderや各種初期化処理でDOM操作の基点となる。
+     */
+    #table;
+
+    /**
+     * @private
+     * @type {Object[]}
+     * 表示対象となる元データ配列。各要素は行データオブジェクト。
+     */
+    #data;
+
+    /**
+     * @private
+     * @type {{key: string, label: string}[]}
+     * テーブル列の定義配列。keyがデータキー、labelが列見出し文字列。
+     */
+    #columns;
+
+    /**
+     * @private
+     * @type {Object.<string, ("match"|"range")>}
+     * 各列のフィルタ種別設定。キーが列key、値が"match"または"range"。
+     */
+    #filterTypes;
+
+    /**
+     * @private
+     * @type {number}
+     * 1ページあたりに表示する行数。
+     */
+    #pageSize;
+
+    /**
+     * @private
+     * @type {Object.<string, "none"|"asc"|"desc">}
+     * 各列のソート状態を保持するマップ。
+     * 例: { Name: "asc", Age: "none" }
+     */
+    #sortStates;
+
+    /**
+     * @private
+     * @type {Object.<string, {text?: string|null, min?: number|null, max?: number|null}>}
+     * 各列に設定されたフィルタ条件を保持。
+     * "match"フィルタではtextを使用、"range"フィルタではmin/maxを使用。
+     */
+    #filters;
+
+    /**
+     * @private
+     * @type {Object[]}
+     * フィルタ処理後のデータ配列。ソートやページング処理の入力となる。
+     */
+    #filtered;
+
+    /**
+     * @private
+     * @type {Object[]}
+     * 現在ページに表示中の行データ配列。render()内でpaginate()の結果を保持。
+     */
+    #pageRows;
+
+    /**
+     * @private
+     * @type {number}
+     * 現在のページ番号（1始まり）。
+     */
+    #currentPage;
+
+    /**
+     * @private
+     * @type {number}
+     * 現在選択中の行インデックス。0始まり。
+     */
+    #selectedIndex;
+
+    /**
+     * @private
+     * @type {{cur: HTMLInputElement, total: HTMLElement}}
+     * ページングUI要素をまとめたオブジェクト。
+     * cur: 現在ページ入力欄、total: 総ページ数表示欄。
+     */
+    #pageUI;
+
+    /**
+     * @private
+     * @type {HTMLImageElement|null}
+     * 行選択時にプレビュー表示を行う画像要素。存在しない場合はnull。
+     */
+    #imgPreview;
+
+    /**
      * @param {HTMLTableElement} table - 操作対象のテーブル要素
      * @param {Object[]} data - 表示データ配列
-     * @param {Object[]} columns - 列定義 ({key, label})
-     * @param {Object} filterTypes - 各列のフィルター種別 ("match" または "range")
+     * @param {{key: string, label: string}[]} columns - 列定義
+     * @param {Object.<string, ("match"|"range")>} filterTypes - 各列のフィルタ種別
      * @param {number} [pageSize=10] - 1ページあたりの行数
      */
     constructor(table, data, columns, filterTypes, pageSize = 10) {
-        this.table = table;
-        this.data = data;
-        this.columns = columns;
-        this.filterTypes = filterTypes;
-        this.pageSize = pageSize;
+        this.#table = table;
+        this.#data = data;
+        this.#columns = columns;
+        this.#filterTypes = filterTypes;
+        this.#pageSize = pageSize;
 
-        this.sortStates = {};
-        this.filters = {};
-        this.currentPage = 1;
-        this.selectedIndex = 0;
-        this.lastIndex = 0;
-        this.imgPreview = document.getElementById("row-preview");
+        this.#sortStates = {};
+        this.#filters = {};
+        this.#currentPage = 1;
+        this.#selectedIndex = 0;
+        this.#imgPreview = document.getElementById("row-preview");
 
         // --- 初期化 ---
         this.#renderHeader();
@@ -38,11 +131,11 @@ class TableApp {
      * @private
      */
     #renderHeader() {
-        const thead = this.table.createTHead();
+        const thead = this.#table.createTHead();
 
         // --- ソート行作成 ---
         const trHead = thead.insertRow();
-        this.columns.forEach(col => {
+        this.#columns.forEach(col => {
             const th = document.createElement("th");
             th.textContent = col.label;
 
@@ -53,14 +146,14 @@ class TableApp {
             th.appendChild(btn);
             trHead.appendChild(th);
 
-            this.sortStates[col.key] = "none";
+            this.#sortStates[col.key] = "none";
         });
 
         // --- フィルタ行作成 ---
         const trFilter = thead.insertRow();
-        this.columns.forEach(col => {
+        this.#columns.forEach(col => {
             const th = document.createElement("th");
-            const type = this.filterTypes[col.key] || "match";
+            const type = this.#filterTypes[col.key] || "match";
 
             // 範囲指定フィルタ
             if (type === "range") {
@@ -73,12 +166,12 @@ class TableApp {
 
                 // 値変更時にフィルタ適用
                 min.oninput = max.oninput = () => {
-                    this.filters[col.key] = {
-                        ...this.filters[col.key],
+                    this.#filters[col.key] = {
+                        ...this.#filters[col.key],
                         min: Number(min.value) || null,
                         max: Number(max.value) || null
                     };
-                    this.currentPage = 1;
+                    this.#currentPage = 1;
                     this.render();
                 };
                 th.append(min, document.createTextNode(" - "), max);
@@ -91,8 +184,8 @@ class TableApp {
                 input.type = "text";
                 input.placeholder = "Filter";
                 input.oninput = () => {
-                    this.filters[col.key] = { text: input.value || null };
-                    this.currentPage = 1;
+                    this.#filters[col.key] = { text: input.value || null };
+                    this.#currentPage = 1;
                     this.render();
                 };
                 wrapper.appendChild(input);
@@ -115,15 +208,15 @@ class TableApp {
                     dropdown.style.top = rect.bottom + "px";
 
                     // ユニークな値を抽出してドロップダウンに反映
-                    const uniqueValues = [...new Set(this.data.map(d => d[col.key]))];
+                    const uniqueValues = [...new Set(this.#data.map(d => d[col.key]))];
                     uniqueValues.forEach(v => {
                         const div = document.createElement("div");
                         div.textContent = v;
                         div.onclick = () => {
                             input.value = v;
-                            this.filters[col.key] = { text: v };
+                            this.#filters[col.key] = { text: v };
                             dropdown.style.display = "none";
-                            this.currentPage = 1;
+                            this.#currentPage = 1;
                             this.render();
                         };
                         dropdown.appendChild(div);
@@ -143,18 +236,18 @@ class TableApp {
      * @private
      */
     #initSort() {
-        this.table.querySelectorAll(".sort-btn").forEach(btn => {
+        this.#table.querySelectorAll(".sort-btn").forEach(btn => {
             btn.addEventListener("click", () => {
                 const key = btn.dataset.key;
-                const current = this.sortStates[key];
+                const current = this.#sortStates[key];
                 const next = current === "none" ? "asc" : current === "asc" ? "desc" : "none";
 
                 // 他列のソート状態をリセット
-                Object.keys(this.sortStates).forEach(k => this.sortStates[k] = "none");
-                this.sortStates[key] = next;
+                Object.keys(this.#sortStates).forEach(k => this.#sortStates[k] = "none");
+                this.#sortStates[key] = next;
 
                 this.#updateSortIcons();
-                this.currentPage = 1;
+                this.#currentPage = 1;
                 this.render();
             });
         });
@@ -165,8 +258,8 @@ class TableApp {
      * @private
      */
     #updateSortIcons() {
-        this.table.querySelectorAll(".sort-btn").forEach(btn => {
-            const state = this.sortStates[btn.dataset.key];
+        this.#table.querySelectorAll(".sort-btn").forEach(btn => {
+            const state = this.#sortStates[btn.dataset.key];
             btn.textContent = state === "none" ? "△▽" : state === "asc" ? "▲▽" : "△▼";
         });
     }
@@ -184,33 +277,33 @@ class TableApp {
 
         // 前ページへ
         prev.onclick = () => {
-            const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
-            this.currentPage = (this.currentPage - 2 + totalPages) % totalPages + 1;
+            const totalPages = Math.ceil(this.#filtered.length / this.#pageSize) || 1;
+            this.#currentPage = (this.#currentPage - 2 + totalPages) % totalPages + 1;
             this.render();
         };
 
         // 次ページへ
         next.onclick = () => {
-            const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
-            this.currentPage = this.currentPage % totalPages + 1;
+            const totalPages = Math.ceil(this.#filtered.length / this.#pageSize) || 1;
+            this.#currentPage = this.#currentPage % totalPages + 1;
             this.render();
         };
 
         // ページ番号入力時
         cur.onchange = () => {
-            const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
-            this.currentPage = Math.min(Math.max(1, +cur.value), totalPages);
+            const totalPages = Math.ceil(this.#filtered.length / this.#pageSize) || 1;
+            this.#currentPage = Math.min(Math.max(1, +cur.value), totalPages);
             this.render();
         };
 
         // 1ページ行数変更
         size.onchange = () => {
-            this.pageSize = +size.value;
-            this.currentPage = 1;
+            this.#pageSize = +size.value;
+            this.#currentPage = 1;
             this.render();
         };
 
-        this.pageUI = { cur, total };
+        this.#pageUI = { cur, total };
     }
 
     /**
@@ -219,21 +312,21 @@ class TableApp {
      */
     #initRowSelect() {
         // クリックで選択
-        this.table.addEventListener("click", e => {
+        this.#table.addEventListener("click", e => {
             const tr = e.target.closest("tr");
             if (!tr) return;
-            const idx = [...this.table.tBodies[0].rows].indexOf(tr);
-            this.selectedIndex = idx;
+            const idx = [...this.#table.tBodies[0].rows].indexOf(tr);
+            this.#selectedIndex = idx;
             this.#updateSelection(0);
         });
 
         // キーボード操作で移動
         document.addEventListener("keydown", e => {
-            if (!this.pageRows?.length) return;
+            if (!this.#pageRows?.length) return;
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                const lastIndex = this.selectedIndex;
+                const lastIndex = this.#selectedIndex;
                 const dir = e.key === "ArrowDown" ? 1 : -1;
-                this.selectedIndex = (this.selectedIndex + dir + this.pageRows.length) % this.pageRows.length;
+                this.#selectedIndex = (this.#selectedIndex + dir + this.#pageRows.length) % this.#pageRows.length;
                 this.#updateSelection(lastIndex);
             }
         });
@@ -245,42 +338,40 @@ class TableApp {
      * @private
      */
     #updateSelection(lastIndex) {
-        const rows = this.table.tBodies[0].rows;
+        const rows = this.#table.tBodies[0].rows;
 
         // 選択行のハイライト更新
-        [...rows].forEach((r, i) => r.classList.toggle("selected", i === this.selectedIndex));
+        [...rows].forEach((r, i) => r.classList.toggle("selected", i === this.#selectedIndex));
 
         // プレビュー画像更新
-        const sel = this.pageRows[this.selectedIndex];
-        if (sel && this.imgPreview) this.imgPreview.src = sel.img || "";
+        const sel = this.#pageRows[this.#selectedIndex];
+        if (sel && this.#imgPreview) this.#imgPreview.src = sel.img || "";
 
         const container = document.querySelector(".table-container");
 
         // 固定ヘッダーの高さ計算
-        const thead = this.table.tHead;
+        const thead = this.#table.tHead;
         let headerHeight = 0;
         if (thead) [...thead.rows].forEach(r => headerHeight += r.offsetHeight);
 
         // 行末→先頭 / 先頭→末尾 のスクロール処理
-        if (this.selectedIndex === 0 && lastIndex === rows.length - 1) {
+        if (this.#selectedIndex === 0 && lastIndex === rows.length - 1) {
             container.scrollTop = 0;
-        } else if (this.selectedIndex === rows.length - 1 && lastIndex === 0) {
+        } else if (this.#selectedIndex === rows.length - 1 && lastIndex === 0) {
             container.scrollTop = container.scrollHeight;
         } else {
             // 可視領域に収まるようスクロール補正
-            const rowTop = rows[this.selectedIndex].offsetTop;
-            const rowBottom = rowTop + rows[this.selectedIndex].offsetHeight;
+            const rowTop = rows[this.#selectedIndex].offsetTop;
+            const rowBottom = rowTop + rows[this.#selectedIndex].offsetHeight;
             const viewTop = container.scrollTop;
             const viewBottom = viewTop + container.clientHeight;
 
             if (rowBottom > viewBottom) {
-                container.scrollTop += rows[this.selectedIndex].offsetHeight;
+                container.scrollTop += rows[this.#selectedIndex].offsetHeight;
             } else if (rowTop < viewTop + headerHeight) {
-                container.scrollTop -= rows[this.selectedIndex].offsetHeight;
+                container.scrollTop -= rows[this.#selectedIndex].offsetHeight;
             }
         }
-
-        this.lastIndex = this.selectedIndex;
     }
 
     /**
@@ -289,71 +380,65 @@ class TableApp {
      */
     #initResetFilters() {
         document.getElementById("reset-filters").onclick = () => {
-            this.filters = {};
+            this.#filters = {};
             document.querySelectorAll("thead input").forEach(el => el.value = "");
-            this.currentPage = 1;
+            this.#currentPage = 1;
             this.render();
         };
     }
+    
+    /**
+     * tbody要素を再描画する。
+     *
+     * @private
+     * @param {Object[]} rows - 描画対象の行データ配列。paginate()で抽出された現在ページのデータ。
+     * @returns {void} - 出力値はなし。DOM操作によりテーブルを更新する。
+     *
+     * @description
+     * - tbodyが存在しない場合は新規作成。
+     * - tbody内をクリアし、rowsの各要素を<tr><td>として描画。
+     * - this.#columnsのkey順にセルを生成。
+     */
+    #renderTableBody(rows) {
+    if (!this.#table.tBodies[0]) this.#table.appendChild(document.createElement("tbody"));
+    const tbody = this.#table.tBodies[0];
+    tbody.innerHTML = "";
+    rows.forEach(d => {
+        const tr = document.createElement("tr");
+        this.#columns.forEach(c => {
+        const td = document.createElement("td");
+        td.textContent = d[c.key];
+        tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    }
 
     /**
-     * テーブル全体を再描画する。
+     * テーブルを再描画する。
+     * フィルタ・ソート・ページングを順に適用し、tbody要素を更新する。
+     *
+     * @returns {void} - 出力値はなし。DOM更新および内部状態を変更する。
+     *
+     * @description
+     * - this.#data: 元データに対してフィルタを適用し、this.#filteredに格納。
+     * - this.#sortStates: 現在のソート状態に従って並べ替え。
+     * - paginate(): ページング処理を行い、現在ページ・総ページ数を更新。
+     * - #renderTableBody(): tbodyを再描画。
+     * - ページUIと選択状態をリセット。
      */
     render() {
-        // --- フィルタ処理 ---
-        this.filtered = this.data.filter(d =>
-            this.columns.every(col => {
-                const f = this.filters[col.key];
-                if (!f) return true;
-                const val = d[col.key];
-                if (f.text != null) return String(val).toLowerCase().includes(f.text.toLowerCase());
-                if (f.min != null && val < f.min) return false;
-                if (f.max != null && val > f.max) return false;
-                return true;
-            })
-        );
+    this.#filtered = filterData(this.#data, this.#filters, this.#columns);
+    const sorted = sortData(this.#filtered, this.#sortStates);
+    const { rows, currentPage, totalPages } = paginate(sorted, this.#currentPage, this.#pageSize);
 
-        // --- ソート処理 ---
-        const sortKey = Object.keys(this.sortStates).find(k => this.sortStates[k] !== "none");
-        if (sortKey) {
-            const order = this.sortStates[sortKey];
-            this.filtered.sort((a, b) => {
-                const va = a[sortKey], vb = b[sortKey];
-                const num = !isNaN(va) && !isNaN(vb);
-                if (num) return order === "asc" ? va - vb : vb - va;
-                return order === "asc"
-                    ? String(va).localeCompare(String(vb))
-                    : String(vb).localeCompare(String(va));
-            });
-        }
+    this.#pageRows = rows;
+    this.#currentPage = currentPage;
 
-        // --- ページング計算 ---
-        const totalPages = Math.ceil(this.filtered.length / this.pageSize) || 1;
-        if (this.currentPage > totalPages) this.currentPage = totalPages;
-        const start = (this.currentPage - 1) * this.pageSize;
-        const end = start + this.pageSize;
-        this.pageRows = this.filtered.slice(start, end);
-
-        // --- テーブル描画 ---
-        if (!this.table.tBodies[0]) this.table.appendChild(document.createElement("tbody"));
-        const tbody = this.table.tBodies[0];
-        tbody.innerHTML = "";
-
-        this.pageRows.forEach(d => {
-            const tr = document.createElement("tr");
-            this.columns.forEach(c => {
-                const td = document.createElement("td");
-                td.textContent = d[c.key];
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-        });
-
-        // --- 選択初期化・ページ情報更新 ---
-        this.selectedIndex = 0;
-        this.lastIndex = 0;
-        this.#updateSelection(0);
-        this.pageUI.cur.value = this.currentPage;
-        this.pageUI.total.textContent = totalPages;
+    this.#renderTableBody(rows);
+    this.#pageUI.cur.value = currentPage;
+    this.#pageUI.total.textContent = totalPages;
+    this.#selectedIndex = 0;
+    this.#updateSelection(0);
     }
 }
