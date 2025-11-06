@@ -324,6 +324,7 @@ class TableApp {
         document.addEventListener("keydown", e => {
             if (!this.#pageRows?.length) return;
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault(); // 全体ページスクロール防止
                 const lastIndex = this.#selectedIndex;
                 const dir = e.key === "ArrowDown" ? 1 : -1;
                 this.#selectedIndex = (this.#selectedIndex + dir + this.#pageRows.length) % this.#pageRows.length;
